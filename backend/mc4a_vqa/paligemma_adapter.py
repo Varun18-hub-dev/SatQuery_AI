@@ -4,9 +4,15 @@ from transformers import AutoProcessor, PaliGemmaForConditionalGeneration
 
 class PaliGemmaVQAAdapter:
     """Unified Adapter for Single-Image Visual Question Answering (Track A)."""
-    
+
     def __init__(self, model_id: str = "google/paligemma-3b-pt-224"):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        if torch.cuda.is_available():
+            self.device = "cuda"
+        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            self.device = "mps"
+        else:
+            self.device = "cpu"
+            
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.model = PaliGemmaForConditionalGeneration.from_pretrained(
             model_id,
@@ -15,44 +21,43 @@ class PaliGemmaVQAAdapter:
         )
         self.model.eval()
 
-    def predict(self, image_input, query: str) -> dict:
-        """
-        Executes VQA on an input image and query.
-        
-        Args:
-            image_input: File path (str) or PIL Image instance.
-            query: Natural language question regarding the scene.
-            
-        Returns:
-            dict: Standardized adapter contract {text, evidence_type, spatial_evidence, confidence}
-        """
+    def predict(self, image_input, query: str, task: str = "vqa") -> dict:
         if isinstance(image_input, str):
-            image = Image.open(image_input).convert("RGB")
+            try:
+                image = Image.open(image_input).convert("RGB")
+            except Exception:
+                # Fallback to rasterio for float64 SAR TIFFs
+                import rasterio
+                import numpy as np
+                with rasterio.open(image_input) as src:
+                    arr = src.read(1)
+                    # Simple min-max normalization to 0-255
+                    arr = np.nan_to_num(arr)
+                    arr_min, arr_max = arr.min(), arr.max()
+                    if arr_max > arr_min:
+                        arr = (arr - arr_min) / (arr_max - arr_min) * 255
+                    arr = arr.astype(np.uint8)
+                    image = Image.fromarray(arr).convert("RGB")
         else:
             image = image_input.convert("RGB")
-
-        prompt = f"<image>question en {query}"
-        inputs = self.processor(text=prompt, images=image, return_tensors="pt").to(self.device)
-
+            
+        # PaliGemma task prefixes: "caption en" for descriptions, "answer en <question>" for VQA
+        prompt = "<image>caption en" if task == "caption" else f"<image>answer en {query}"
+        inputs = self.processor(text=prompt, images=image, return_tensors="pt").to(self.model.device)
         with torch.no_grad():
             outputs = self.model.generate(
-                **inputs, 
+                **inputs,
                 max_new_tokens=60,
                 return_dict_in_generate=True,
                 output_scores=True
             )
-
-        # Decode generated answer
         generated_tokens = outputs.sequences[0]
         decoded = self.processor.decode(generated_tokens, skip_special_tokens=True)
         answer = decoded[len(prompt.replace("<image>", "")) :].strip()
-
-        # Compute average softmax confidence across generated output tokens
-        logits = torch.stack(outputs.scores, dim=1)  # shape: (1, seq_len, vocab_size)
+        logits = torch.stack(outputs.scores, dim=1)
         probs = torch.softmax(logits, dim=-1)
         token_probs = probs[0, torch.arange(len(outputs.scores)), generated_tokens[-len(outputs.scores):]]
         avg_confidence = float(token_probs.mean().item())
-
         return {
             "text": answer,
             "evidence_type": "none",

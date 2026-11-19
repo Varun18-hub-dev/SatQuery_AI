@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Node / build output
+node_modules/
+dist/
+build/
+
+# OS / editor
+.DS_Store
+
+# Secrets
+.env
+
+# Model weights — downloaded via backend/download_croma.py (several GB)
+backend/mc4c/weights/
+
+# Runtime job data — recreated on every run
+backend/uploads/
+backend/exports/
+
+# Datasets & derived feature caches — fetched/regenerated locally, never committed.
+# See README.md "Data & model weights".
+backend/demo_data/
+backend/data/features/
+backend/data/text_features/
+S1-AAD Sentinel-1 Amazon Airstrip Dataset/
+
+# Scratch tests
+backend/tests/test_temp*.py
+
+# Vercel CLI link and pulled env
+.vercel
+.env.local
+.env*
