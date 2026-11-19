@@ -6,8 +6,6 @@
 
 *Ask in plain language. Get an answer you can audit, all the way down to the pixels.*
 
-*Team project · original repo: [sudeep-07-hub/SatQuery_AI](https://github.com/sudeep-07-hub/SatQuery_AI)*
-
 [![LIVE DEMO](https://img.shields.io/badge/🌐_LIVE-DEMO-F2600C?style=for-the-badge)](https://sat-query-ai-mu.vercel.app/)
 [![PIPELINE](https://img.shields.io/badge/🧩_PIPELINE-MC1→MC8-blue?style=for-the-badge)](#system-architecture)
 [![LLM](https://img.shields.io/badge/🧠_PLANNER-QWEN3--4B-purple?style=for-the-badge)](https://ollama.com/library/qwen3)
